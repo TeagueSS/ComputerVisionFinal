@@ -1,64 +1,144 @@
+# For Python 2.7 and 3 compatibility
+from __future__ import print_function
+
 import socket
-import subprocess
 import time
-import traceback
+import cv2
+import threading
 
-from Wrappers.Camera import Camera
-from Wrappers.Remote import Controller
-import speedtest
-from flask import Flask, jsonify, request, render_template, Response
-
-#pip install speedtest-cli
-# pip install Flask
-# Instantiate the camera once when the app starts
-camera = Camera(0)
-# Create an Instance of our controller
-controller = Controller()
-# Creating a flask app we can build off of for our communications ->
-app = Flask(__name__)
-# Checking if we have a connection
-@app.route('/ping/<string:host>', methods=['GET'])
-def ping(host):
-    # putting all of our communications in a try block ->
+try:
+    # Python 3
+    from flask import Flask, jsonify, request, Response
+except ImportError:
+    # Try with a more basic approach for old systems
+    print("Warning: Using fallback imports. Consider upgrading to Python 3.")
     try:
-        # Here we have two Seperate way of letting them connect
-        # if it was through a browser with a static IP i want to tell them they're
-        # Connected correctly
-        output = "<p>Hello, World! You are connected to the server!</p>"
-        if request.accept_mimetypes.accept_html:
-            return output  # returns HTML
-        else:
-            # If the care doing a curl command or a ping we can return a version
-            # they can use ->
-            output = subprocess.check_output(['ping', '-c', '4', host], universal_newlines=True)
-            return jsonify({'result': output})
-    except subprocess.CalledProcessError as e:
-       return jsonify({'error': str(e)}), 500
+        from flask import Flask, jsonify, request, Response
+    except ImportError:
+        print("Error: Flask not installed. Install with: sudo apt install python3-flask")
+        exit(1)
 
-@app.route('/speedtest', methods=['GET'])
-def speed_test():
-   try:
-        # Running a Speed test between our two connections ->
-        st = speedtest.Speedtest()
-        st.download()
-        st.upload()
-        results = st.results.dict()
-        # Converting our results so they can be shown on a WebPage
-        download_speed = round(results["download"] / 1_000_000, 2)  # Convert to Mbps
-        upload_speed = round(results["upload"] / 1_000_000, 2)  # Convert to Mbps
-        ping = results["ping"]
 
-        # If they can accept a web page return it in that form ->
-        if request.accept_mimetypes.accept_html:
-            return render_template('speedtest.html', download_speed=download_speed, upload_speed=upload_speed,
-                                   ping=ping)
-        else:
-            # Returning it in a format they can use ->
-            results = st.results.dict()
-            return jsonify(results)
+# Initialize camera with OpenCV
+class SimpleCamera:
+    def __init__(self, camera_id=0):
+        self.camera_id = camera_id
+        self.cap = None
+        self.stream_info = {
+            'bitrate': '0 kb/s',
+            'latency': '0 ms'
+        }
+        self.last_frame_time = time.time()
+        self.frame_count = 0
+        self.is_running = False
+        self.lock = threading.Lock()
+        self.current_frame = None
 
-   except Exception as e:
-       return jsonify({'error': str(e)}), 500
+    def start(self):
+        """Start the camera capture"""
+        if self.cap is None:
+            self.cap = cv2.VideoCapture(self.camera_id)
+            # Set resolution (adjust as needed)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+        self.is_running = True
+        # Start background thread for frame capture
+        threading.Thread(target=self._update_frame, daemon=True).start()
+        # Start background thread for calculating stats
+        threading.Thread(target=self._update_stats, daemon=True).start()
+
+    def _update_frame(self):
+        """Continuously update the current frame"""
+        while self.is_running:
+            success, frame = self.cap.read()
+            if success:
+                with self.lock:
+                    self.current_frame = frame
+                    self.frame_count += 1
+            else:
+                # If camera read fails, try to reconnect
+                self.cap.release()
+                time.sleep(1)
+                self.cap = cv2.VideoCapture(self.camera_id)
+
+            # Avoid high CPU usage
+            time.sleep(0.01)
+
+    def _update_stats(self):
+        """Update streaming statistics"""
+        while self.is_running:
+            current_time = time.time()
+            elapsed = current_time - self.last_frame_time
+
+            if elapsed >= 1.0:  # Update stats every second
+                with self.lock:
+                    fps = self.frame_count / elapsed
+                    estimated_bitrate = (self.frame_count * 640 * 480 * 3 * 8) / (elapsed * 1000)  # kbps
+                    self.stream_info['bitrate'] = f"{estimated_bitrate:.2f} kb/s"
+                    self.stream_info['latency'] = f"{(elapsed * 1000 / max(1, self.frame_count)):.2f} ms"
+                    self.frame_count = 0
+                    self.last_frame_time = current_time
+
+            time.sleep(0.5)
+
+    def get_frame(self):
+        """Get the current frame"""
+        with self.lock:
+            if self.current_frame is not None:
+                return self.current_frame.copy()
+            return None
+
+    def capture_feed(self):
+        """Generator function for streaming frames"""
+        while True:
+            frame = self.get_frame()
+            if frame is not None:
+                # Encode frame as JPEG
+                ret, jpeg = cv2.imencode('.jpg', frame)
+                if ret:
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n\r\n')
+
+            # Add a small delay to control frame rate
+            time.sleep(0.03)  # ~30 fps
+
+    def stop(self):
+        """Stop the camera capture"""
+        self.is_running = False
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
+
+
+# Simple joystick controller
+class SimpleController:
+    def __init__(self):
+        self.state = {
+            'direction': 'none',
+            'speed': 0,
+            'buttons': {}
+        }
+
+    def process_commands(self, commands):
+        """Process commands from web interface"""
+        if commands:
+            self.state.update(commands)
+            print(f"Controller state updated: {self.state}")
+            # You can add code here to control your robot/motors
+            # based on the received commands
+
+
+# Create Flask app
+app = Flask(__name__)
+
+# Instantiate the camera and controller
+camera = SimpleCamera(0)  # Use 0 for default camera
+controller = SimpleController()
+
+# Start the camera when the app starts
+camera.start()
+
 
 def get_ip_address():
     try:
@@ -68,121 +148,195 @@ def get_ip_address():
     except socket.gaierror as e:
         return f"Error getting IP address: {e}"
 
-# >-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<
-# >-<*>-<*>-<*>-<*>-<*>-<*>-FFMPEG for accelerating Video Feed-<*>-<*>-<*>-<*>-<
-# >-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<
-# >-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<
 
-# Global dictionary to hold live stream stats
-#
-stream_info = {'bitrate': '0 kb/s', 'latency': '0 ms'}
-
-def update_ffmpeg_stats(stderr_pipe):
-    """
-    Reads FFmpeg progress info from stderr and updates the stream_info dictionary.
-    Expected progress lines are like:
-      bitrate=  500.0kbits/s
-      out_time_ms=12345678
-    """
-    for line in iter(stderr_pipe.readline, b''):
-        try:
-            decoded_line = line.decode('utf-8').strip()
-            # Parse bitrate info
-            if decoded_line.startswith("bitrate="):
-                bitrate = decoded_line.split('=')[1].strip()
-                stream_info['bitrate'] = bitrate
-            # Parse out_time_ms for an estimated latency (if available)
-            if decoded_line.startswith("out_time_ms="):
-                out_time_ms = int(decoded_line.split('=')[1].strip())
-                current_time_ms = int(time.time() * 1000)
-                latency = current_time_ms - out_time_ms
-                stream_info['latency'] = f"{latency} ms"
-        except Exception:
-            continue
-
-# Global dictionary for stream stats
-stream_info = {
-    'bitrate': '0 kb/s',
-    'latency': '0 ms'
-}
-
-# Global variables for bitrate calculation
-last_stat_time = time.time()
-accumulated_bytes = 0
+@app.route('/')
+def index():
+    """Main page"""
+    return render_template('index.html')
 
 
 @app.route('/video_feed')
 def video_feed():
-
-    """Video streaming route. Put this in the src attribute of an img tag."""
+    """Video streaming route for <img> tag src attribute"""
     return Response(camera.capture_feed(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 @app.route('/stream_stats')
 def stream_stats():
-    """Return the current bitrate and latency as JSON."""
+    """Return the current bitrate and latency as JSON"""
     return jsonify(camera.stream_info)
-
-@app.route('/webcam')
-def webcam():
-    """Render the page with the webcam stream and live stats."""
-    return render_template('webcam.html')
-
-# >-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<
-# >-<*>-<*>-<*>-<*>-<*>-<*>-Getting controller inputs from the browser -<*>-<*>-<*>-<*>-<
-# >-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<
-# >-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<*>-<
 
 
 @app.route('/controller')
 def controller_page():
+    """Controller interface page"""
     return render_template('controller.html')
+
+
 @app.route('/controller_input', methods=['POST'])
 def controller_input():
-    # Get JSON data from the POST request
+    """Handle controller input from the web interface"""
     data = request.get_json()
-    # Here we simply log the data and echo it back.
-    # In a real application, you might process the data further.
     print("Received controller input:", data)
     controller.process_commands(data)
     return jsonify({"status": "ok", "received": data})
 
 
-
-
-# Methods for showing control surfaces
-@app.route("/remote_update", methods=["POST"])
-def update():
+@app.route('/ping/<string:host>', methods=['GET'])
+def ping(host):
+    """Simple ping endpoint to test connectivity"""
     try:
-        # Get the posted JSON data
-        commands = request.get_json()
-        print("Received commands:", commands)
-
-        # Pass the commands to your controller instance
-        controller.process_commands(commands)
-
-        # Return a JSON response indicating success
-        return jsonify({"status": "ok"})
+        if request.accept_mimetypes.accept_html:
+            return "<p>Hello, World! You are connected to the server!</p>"
+        else:
+            # Simple response for non-HTML requests
+            return jsonify({'result': 'Connection successful'})
     except Exception as e:
-        # Log the full error traceback in the console
-        traceback.print_exc()
-        # Return a JSON error response with a 500 status code
-        return jsonify({"status": "error", "error": str(e)}), 500
+        return jsonify({'error': str(e)}), 500
+
+
+# HTML templates needed for the app
+# Using string formatting that works with Python 2.7
+@app.route('/templates/<template_name>')
+def get_template(template_name):
+    """Create basic templates dynamically"""
+    if template_name == 'index.html':
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Raspberry Pi Camera Server</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 0; padding: 20px; text-align: center; }
+                h1 { color: #333; }
+                .video-container { margin: 20px auto; max-width: 800px; }
+                img { width: 100%; border: 1px solid #ddd; }
+                .stats { margin: 20px auto; max-width: 400px; background: #f0f0f0; padding: 10px; border-radius: 5px; }
+                .btn { padding: 10px 20px; background: #4CAF50; color: white; border: none; cursor: pointer; margin: 5px; }
+                .btn:hover { background: #45a049; }
+            </style>
+        </head>
+        <body>
+            <h1>Raspberry Pi Camera Feed</h1>
+            <div class="video-container">
+                <img src="/video_feed" alt="Video Feed">
+            </div>
+            <div class="stats">
+                <h3>Stream Statistics</h3>
+                <p>Bitrate: <span id="bitrate">0 kb/s</span></p>
+                <p>Latency: <span id="latency">0 ms</span></p>
+            </div>
+            <div>
+                <a href="/controller"><button class="btn">Open Controller</button></a>
+            </div>
+            <script>
+                function updateStats() {
+                    fetch('/stream_stats')
+                        .then(response => response.json())
+                        .then(data => {
+                            document.getElementById('bitrate').textContent = data.bitrate;
+                            document.getElementById('latency').textContent = data.latency;
+                        });
+                }
+
+                // Update stats every second
+                setInterval(updateStats, 1000);
+            </script>
+        </body>
+        </html>
+        """
+    elif template_name == 'controller.html':
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Pi Camera Controller</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 0; padding: 20px; text-align: center; }
+                h1 { color: #333; }
+                .controls { margin: 20px auto; max-width: 400px; background: #f0f0f0; padding: 20px; border-radius: 5px; }
+                .d-pad { display: grid; grid-template-columns: repeat(3, 1fr); grid-gap: 10px; margin: 20px auto; }
+                .btn { padding: 20px; background: #4CAF50; color: white; border: none; cursor: pointer; font-size: 20px; border-radius: 5px; }
+                .btn:hover { background: #45a049; }
+                .btn:active { background: #3e8e41; }
+                .spacer { visibility: hidden; }
+            </style>
+        </head>
+        <body>
+            <h1>Camera Controller</h1>
+            <div class="controls">
+                <div class="d-pad">
+                    <div class="spacer"></div>
+                    <button class="btn" id="up">↑</button>
+                    <div class="spacer"></div>
+                    <button class="btn" id="left">←</button>
+                    <button class="btn" id="stop">■</button>
+                    <button class="btn" id="right">→</button>
+                    <div class="spacer"></div>
+                    <button class="btn" id="down">↓</button>
+                    <div class="spacer"></div>
+                </div>
+                <div>
+                    <a href="/"><button class="btn">Back to Camera Feed</button></a>
+                </div>
+            </div>
+            <script>
+                const buttons = document.querySelectorAll('.btn');
+
+                buttons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        const command = this.id;
+                        let directionData = {};
+
+                        switch(command) {
+                            case 'up':
+                                directionData = {direction: 'forward', speed: 50};
+                                break;
+                            case 'down':
+                                directionData = {direction: 'backward', speed: 50};
+                                break;
+                            case 'left':
+                                directionData = {direction: 'left', speed: 50};
+                                break;
+                            case 'right':
+                                directionData = {direction: 'right', speed: 50};
+                                break;
+                            case 'stop':
+                                directionData = {direction: 'none', speed: 0};
+                                break;
+                        }
+
+                        fetch('/controller_input', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(directionData)
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('Success:', data);
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                        });
+                    });
+                });
+            </script>
+        </body>
+        </html>
+        """
+    else:
+        return "Template not found", 404
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
-
-
-
-
-
-
-
-if __name__ == '__main__':
-   app.run(host='0.0.0.0', port=5000)
-   ip = get_ip_address()
-   print(f"Current IP address: {ip}")
-   print(f"Connect at: {ip}/5000 and make a get request")
-
+    try:
+        ip = get_ip_address()
+        print("Current IP address: {}".format(ip))
+        print("Server starting. Access at: http://{}:5000".format(ip))
+        app.run(host='0.0.0.0', port=5000, threaded=True)
+    finally:
+        # Make sure camera is properly released when server stops
+        camera.stop()
