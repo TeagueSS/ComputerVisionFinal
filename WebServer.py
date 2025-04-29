@@ -87,23 +87,40 @@ class PiCameraStream:
             # Add a small delay to control frame rate
             time.sleep(1.0 / self.camera.framerate)
 
-    def take_picture(self):
-        # Getting our photo information from the API request
-        # Get the filename from request parameters
-        fileName = request.args.get('fileName', 'image.jpg')  # Default filename if none provided
+    def take_picture(self, fileName="image.jpg"):
+        """
+        Capture and save a picture with the given filename
 
-        # Take the file name and save the image in the local directory under that name
-        # Check if the directory is created
-        # If not create the /Pictures Directory
-        # if it is then save our picture at the maximum size possible
+        Args:
+            fileName: Name of the file to save (default: image.jpg)
 
-        # Getting our current directory
-        current_directory = Path.cwd()
-        # Try to save the picture
-        self.camera.capture('/home/pi/Desktop/ComputerVisionProject/ComputerVisionFinal/Pictures/image.jpg')
+        Returns:
+            Path to the saved image
+        """
+        try:
+            # Getting our current directory
+            current_directory = Path.cwd()
+            print(f"Current directory: {current_directory}")
 
-        # Printing our current direcotry
-        print(current_directory)
+            # Create Pictures directory if it doesn't exist
+            pictures_dir = current_directory / 'Pictures'
+            if not pictures_dir.exists():
+                pictures_dir.mkdir()
+                print(f"Created directory: {pictures_dir}")
+
+            # Complete path for saving the image
+            file_path = pictures_dir / fileName
+
+            # Capture the image
+            self.camera.capture(str(file_path))
+            print(f"Image saved to: {file_path}")
+
+            return file_path
+
+        except Exception as e:
+            print(f"Error saving image: {e}")
+            # Return None or raise the exception to indicate failure
+            return None
 
     def stop(self):
         """Stop the camera capture"""
