@@ -30,7 +30,9 @@ except ImportError as e:
 
 # Initialize camera with PiCamera
 class PiCameraStream:
+
     def __init__(self):
+        self.picture_number = 1
         self.camera = None
         self.stream_info = {
             'bitrate': '0 kb/s',
@@ -109,7 +111,8 @@ class PiCameraStream:
                 print(f"Created directory: {pictures_dir}")
 
             # Complete path for saving the image
-            file_path = pictures_dir / fileName
+            file_path = pictures_dir / str(self.picture_number) + fileName
+            self.picture_number += 1
 
             # Capture the image
             self.camera.capture(str(file_path))
