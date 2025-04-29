@@ -9,6 +9,8 @@ import sys
 import io
 import threading
 from flask import Flask, jsonify, request, Response
+import os
+from pathlib import Path
 
 # Debug information about Python paths
 print("Python version:", sys.version)
@@ -161,6 +163,32 @@ def video_feed():
     """Video streaming route for <img> tag src attribute"""
     return Response(camera.capture_feed(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+
+# Creating a new subpath to hold our image path ->
+@app.route('/take_picture')
+def take_picture():
+    # Getting our photo information from the API request
+    # Get the filename from request parameters
+    fileName = request.args.get('fileName', 'image.jpg')  # Default filename if none provided
+
+    # Take the file name and save the image in the local directory under that name
+    # Check if the directory is created
+    # If not create the /Pictures Directory
+    # if it is then save our picture at the maximum size possible
+
+    # Getting our current directory
+    current_directory = Path.cwd()
+    # Printing our current direcotry
+    print(current_directory)
+
+#TODO
+# Creat a take picture method that calls the currently active camera and saves the photo locally
+
+
+
+def button():
 
 
 @app.route('/stream_stats')
