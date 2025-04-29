@@ -47,7 +47,7 @@ class PiCameraStream:
         """Start the camera capture"""
         if self.camera is None:
             self.camera = PiCamera()
-            self.camera.resolution = (1920, 1080)
+            self.camera.resolution = (2592 , 1944)
             self.camera.framerate = 30
             # Give camera time to warm up
             time.sleep(2)
