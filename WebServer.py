@@ -183,13 +183,8 @@ def take_picture():
     # Printing our current direcotry
     print(current_directory)
 
-#TODO
-# Creat a take picture method that calls the currently active camera and saves the photo locally
-
-
-
-def button():
-
+    #TODO
+    # Creat a take picture method that calls the currently active camera and saves the photo locally
 
 @app.route('/stream_stats')
 def stream_stats():
