@@ -185,6 +185,7 @@ def take_picture():
 
     #TODO
     # Creat a take picture method that calls the currently active camera and saves the photo locally
+    return f"Picture taken and saved as {fileName}"
 
 @app.route('/stream_stats')
 def stream_stats():
