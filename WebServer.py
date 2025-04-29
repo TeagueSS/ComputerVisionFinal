@@ -87,6 +87,24 @@ class PiCameraStream:
             # Add a small delay to control frame rate
             time.sleep(1.0 / self.camera.framerate)
 
+    def take_picture(self):
+        # Getting our photo information from the API request
+        # Get the filename from request parameters
+        fileName = request.args.get('fileName', 'image.jpg')  # Default filename if none provided
+
+        # Take the file name and save the image in the local directory under that name
+        # Check if the directory is created
+        # If not create the /Pictures Directory
+        # if it is then save our picture at the maximum size possible
+
+        # Getting our current directory
+        current_directory = Path.cwd()
+        # Try to save the picture
+        self.camera.capture('/home/pi/Desktop/ComputerVisionProject/ComputerVisionFinal/Pictures/image.jpg')
+
+        # Printing our current direcotry
+        print(current_directory)
+
     def stop(self):
         """Stop the camera capture"""
         self.is_running = False
@@ -169,26 +187,12 @@ def video_feed():
 # Creating a new subpath to hold our image path ->
 @app.route('/take_picture')
 def take_picture():
-    # Getting our photo information from the API request
-    # Get the filename from request parameters
-    fileName = request.args.get('fileName', 'image.jpg')  # Default filename if none provided
-
-    # Take the file name and save the image in the local directory under that name
-    # Check if the directory is created
-    # If not create the /Pictures Directory
-    # if it is then save our picture at the maximum size possible
-
-    # Getting our current directory
-    current_directory = Path.cwd()
-    # Try to save the picture
-    camera.capture('/home/pi/Desktop/ComputerVisionProject/ComputerVisionFinal/Pictures/image.jpg')
-
-    # Printing our current direcotry
-    print(current_directory)
+    camera.take_picture()
+    #print(current_directory)
 
     #TODO
     # Creat a take picture method that calls the currently active camera and saves the photo locally
-    return f"Picture taken and saved as {fileName}"
+    return f"Picture taken and saved as Took Picture!"
 
 @app.route('/stream_stats')
 def stream_stats():
