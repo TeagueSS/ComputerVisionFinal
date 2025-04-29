@@ -110,8 +110,11 @@ class PiCameraStream:
                 pictures_dir.mkdir()
                 print(f"Created directory: {pictures_dir}")
 
+            # Create a filename that includes the picture number
+            numbered_filename = f"{self.picture_number}_{fileName}"
+
             # Complete path for saving the image
-            file_path = pictures_dir / str(self.picture_number) + fileName
+            file_path = pictures_dir / numbered_filename
             self.picture_number += 1
 
             # Capture the image
@@ -124,6 +127,7 @@ class PiCameraStream:
             print(f"Error saving image: {e}")
             # Return None or raise the exception to indicate failure
             return None
+
 
     def stop(self):
         """Stop the camera capture"""
