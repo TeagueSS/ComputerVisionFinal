@@ -180,8 +180,8 @@ def take_picture():
 
     # Getting our current directory
     current_directory = Path.cwd()
-    # Saving our picture under the name
-    camera.capture(current_directory + fileName)
+    # Try to save the picture
+    camera.capture('/home/pi/Desktop/ComputerVisionProject/ComputerVisionFinal/Pictures/image.jpg')
 
     # Printing our current direcotry
     print(current_directory)
