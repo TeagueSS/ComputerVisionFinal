@@ -149,12 +149,24 @@ camera.start()
 
 
 def get_ip_address():
+    """Get the non-loopback IP address of the Raspberry Pi"""
     try:
-        hostname = socket.gethostname()
-        ip_address = socket.gethostbyname(hostname)
+        # This approach gets the IP address that would be used to connect to an external host
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # This doesn't actually establish a connection
+        s.connect(("8.8.8.8", 80))
+        ip_address = s.getsockname()[0]
+        s.close()
         return ip_address
-    except socket.gaierror as e:
-        return "Error getting IP address: {}".format(e)
+    except Exception as e:
+        print(f"Error getting IP address: {e}")
+        # Fallback to hostname method
+        try:
+            hostname = socket.gethostname()
+            ip_address = socket.gethostbyname(hostname)
+            return ip_address
+        except socket.gaierror as e:
+            return "127.0.0.1"  # Default fallback
 
 
 @app.route('/')
