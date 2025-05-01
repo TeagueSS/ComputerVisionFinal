@@ -64,9 +64,11 @@ class PiCameraStream:
 
             if elapsed >= 1.0:  # Update stats every second
                 with self.lock:
-                    estimated_bitrate = self.camera.framerate * 640 * 480 * 3 * 8 / 1000  # kbps
+                    # Convert fractions to float before formatting
+                    framerate_float = float(self.camera.framerate)
+                    estimated_bitrate = framerate_float * 640 * 480 * 3 * 8 / 1000  # kbps
                     self.stream_info['bitrate'] = "{:.2f} kb/s".format(estimated_bitrate)
-                    self.stream_info['latency'] = "{:.2f} ms".format(1000.0 / self.camera.framerate)
+                    self.stream_info['latency'] = "{:.2f} ms".format(1000.0 / framerate_float)
                     self.last_frame_time = current_time
 
             time.sleep(0.5)
