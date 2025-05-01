@@ -47,7 +47,7 @@ class PiCameraStream:
         """Start the camera capture"""
         if self.camera is None:
             self.camera = PiCamera()
-            self.camera.resolution = (2592 , 1944)
+            self.camera.resolution = (2592, 1944)
             self.camera.framerate = 30
             # Give camera time to warm up
             time.sleep(2)
@@ -128,7 +128,6 @@ class PiCameraStream:
             # Return None or raise the exception to indicate failure
             return None
 
-
     def stop(self):
         """Stop the camera capture"""
         self.is_running = False
@@ -170,12 +169,25 @@ def index():
             .video-container { margin: 20px auto; max-width: 800px; }
             img { width: 100%; border: 1px solid #ddd; }
             .stats { margin: 20px auto; max-width: 400px; background: #f0f0f0; padding: 10px; border-radius: 5px; }
+            .controls { margin: 20px auto; max-width: 400px; background: #e8f4ff; padding: 15px; border-radius: 5px; }
+            input[type="text"] { padding: 8px; width: 200px; margin-right: 10px; border-radius: 4px; border: 1px solid #ccc; }
+            button { padding: 8px 15px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+            button:hover { background-color: #45a049; }
+            .message { margin-top: 10px; color: #333; }
         </style>
     </head>
     <body>
         <h1>Raspberry Pi Camera Feed (PiCamera)</h1>
         <div class="video-container">
             <img src="/video_feed" alt="Video Feed">
+        </div>
+        <div class="controls">
+            <h3>Take a Picture</h3>
+            <form action="/save_picture" method="post">
+                <input type="text" name="filename" placeholder="Enter image name" required>
+                <button type="submit">Save Picture</button>
+            </form>
+            <div id="picture-message" class="message"></div>
         </div>
         <div class="stats">
             <h3>Stream Statistics</h3>
@@ -194,6 +206,13 @@ def index():
 
             // Update stats every second
             setInterval(updateStats, 1000);
+
+            // Check for message parameter in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const message = urlParams.get('message');
+            if (message) {
+                document.getElementById('picture-message').textContent = decodeURIComponent(message);
+            }
         </script>
     </body>
     </html>
@@ -207,16 +226,35 @@ def video_feed():
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
-
-# Creating a new subpath to hold our image path ->
+# Original take_picture route
 @app.route('/take_picture')
 def take_picture():
     camera.take_picture()
-    #print(current_directory)
-
-    #TODO
-    # Creat a take picture method that calls the currently active camera and saves the photo locally
     return f"Picture taken and saved as Took Picture!"
+
+
+# New route to handle the form submission
+@app.route('/save_picture', methods=['POST'])
+def save_picture():
+    """Save a picture with a custom filename"""
+    if request.method == 'POST':
+        # Get the filename from the form
+        filename = request.form.get('filename', 'image.jpg')
+
+        # Make sure the filename ends with .jpg
+        if not filename.lower().endswith(('.jpg', '.jpeg')):
+            filename += '.jpg'
+
+        # Take the picture with the custom filename
+        file_path = camera.take_picture(fileName=filename)
+
+        if file_path:
+            # Redirect back to the main page with a success message
+            return f"Picture taken and saved as {file_path}", 200
+        else:
+            # Redirect back to the main page with an error message
+            return "Error saving picture", 500
+
 
 @app.route('/stream_stats')
 def stream_stats():
