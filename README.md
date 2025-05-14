@@ -1,4 +1,4 @@
-```markdown
+
 # 📸 Investigation of Alternative Distance and Object Detection Using a Single Camera Warped Lens 🔭
 
 ## 🎯 Project Overview
@@ -140,6 +140,5 @@ This section outlines the steps to set up the necessary environment and run the 
 * Ryan Renales
 * Jwann Sy
 
-*(Please verify contributor names and roles if needed)*
 
 ---
