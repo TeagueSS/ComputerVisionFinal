@@ -3,22 +3,25 @@
 
 ## 🎯 Project Overview
 
-This project, Taken for CS559; Computer Vision, explores an alternative method for object distance detection using a single, modified camera lens and an AI model. The core idea was to simulate a warped lens effect by applying a synthetic blur to images and then train a YOLO V3 model to perform object detection and distance estimation on this distorted data. The goal was to investigate if such a system could offer a more cost-effective alternative to traditional methods like LiDAR or stereoscopic cameras.
+Our project, Taken for CS559; Computer Vision, explores an alternative method for object distance detection using a single, modified camera lens and an AI model. Originally we wanted to capture data a real camera we actually did modify. However due to non lab perfect conditions we found the warping and camera distortions to be too intense. So we switched to Sythetic Data! Here our core idea was that if we could simulate a warped lens effect by applying a synthetic blur to images, we could then train a blurred YOLO V3 version alongside a 'Control' version to see how distorted data would treat an image and distance estimation pipline. Our ultimate goal with this porject was to investigate if such a system could offer a more cost-effective alternative to traditional methods like LiDAR or stereoscopic cameras. We tried and we failed but if you want to know just how bad our blurred model failed make sure to read the uploaded report! 
 
-The research involved:
+Our research involved:
 1.  Developing an algorithm to synthetically apply a depth-aware blur to an existing image dataset (simulating a camera with an inclined sensor).
 2.  Modifying and fine-tuning a YOLO V3-based object detection model (Dist-YOLO) to predict object classes (cars, cyclists, pedestrians) and their distances.
 3.  Training two versions of the model: one on the original, unaltered dataset and another on the synthetically blurred dataset.
 4.  Comparing the performance of these models to assess the viability of the proposed approach.
 
-Ultimately, the project found that while the concept is intriguing, the YOLO V3 model's performance significantly degraded when trained and/or tested on the synthetically blurred images. The image distortion, even when the model was fine-tuned on it, led to a substantial loss in detection accuracy and confidence.
+Ultimately, we project found that while the concept is intriguing, the YOLO V3 model's performance significantly degraded when trained and/or tested on the synthetically blurred images. The image distortion, even when the model was fine-tuned on it, led to a substantial loss in detection accuracy and confidence. If you read the attached paper ending with .pdf you can even see that the tuned model did better on the blurred images than the blurred model did.
 
 ## 🔑 Key Objectives
 
-* To simulate the optical characteristics of a modified camera (warped lens/inclined sensor) through synthetic image blurring.
-* To adapt an object detection model (YOLO V3) to estimate object distances from single monocular images.
-* To evaluate the feasibility of using intentionally distorted images for distance estimation as a low-cost alternative to existing technologies.
-* To compare the performance of models trained on blurred vs. non-blurred image data.
+* Create a modified camera
+* Capture data
+* Train a model -> BUT THIS FAILED! So we had to make sytetic data by: 
+* Simulating the optical characteristics of a modified camera (warped lens/inclined sensor) through synthetic image blurring. (Please check `Bluring Alogirthm For Simulating Modified Camera.ipynb`)
+* To adapt an object detection model (YOLO V3) to estimate object distances from single monocular images. (`train both models.ipynb`)
+* To evaluate the feasibility of using intentionally distorted images for distance estimation as a low-cost alternative to existing technologies. 
+* To compare the performance of models trained on blurred vs. non-blurred image data. (`compare.ipynb`)
 
 ## 🛠️ Methodology
 
@@ -29,7 +32,8 @@ Due to challenges in obtaining consistent and usable data from a physically modi
     * `Bluring Alogirthm For Simulating Modified Camera.ipynb`
 
 ### 2. 🧠 Model Architecture and Training
-The project utilized a YOLO V3-based architecture, building upon concepts from Dist-YOLO, which integrates distance estimation with object detection. The inital editing and weights of the model was provided by the yolo-dist repository cited bellow. The model was modified to:
+The project utilized a YOLO V3-based architecture, building upon concepts from Dist-YOLO, which integrates distance estimation with object detection. 
+The inital editing and weights of the model was provided by the yolo-dist repository cited bellow. The model was modified to:
 * Predict object classes (cars, cyclists, pedestrians).
 * Estimate the distance to each detected object.
 * Handle the additional distance dimension in the training labels.
@@ -37,6 +41,10 @@ The project utilized a YOLO V3-based architecture, building upon concepts from D
 Two primary models were trained:
 * **Model 1 (Baseline):** Fine-tuned on the original, unaltered image dataset.
 * **Model 2 (Blurred):** Fine-tuned on the synthetically blurred image dataset.
+
+Why two Models? 
+* We needed a way to have a control model for comparison
+* We needed to see just how much blurring affected spatial data and object recognition before and after training!
 
 Training involved careful consideration of loss functions, particularly re-weighting the confidence loss to manage issues arising from the blurred data and reduced class set.
 
@@ -84,13 +92,14 @@ This section outlines the steps to set up the necessary environment and run the 
 
     *Note for `yolo-with-distance` submodule:* The `yolo-with-distance` repository might have its own specific dependencies or setup instructions. Please refer to its documentation within the `ExistingModel/yolo-with-distance` directory.
 
-4.  **Download Datasets (if applicable):**
-    This project primarily uses the KITTI dataset.
+4.  **Download Datasets:**
+    This project primarily uses the KITTI dataset. This is the dataset we used for both blurred and non-blurred models. To Blur the data from this section use `Bluring Alogirthm For Simulating Modified Camera.ipynb`
     * **KITTI Dataset:** You will need to download the relevant parts of the KITTI Vision Benchmark Suite, specifically the data for object detection (images and labels).
         * Homepage: [http://www.cvlibs.net/datasets/kitti/](http://www.cvlibs.net/datasets/kitti/)
         * Object detection data: [http://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=2d](http://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=2d)
     * Place the downloaded and extracted dataset in a directory structure that your notebooks expect (e.g., a `dataset/kitti/` folder in the project root or as configured in the notebooks). Please verify the exact paths used in the Jupyter notebooks.
-    *(Please add more specific details here if the notebooks expect a very particular structure or if specific preprocessing steps for the dataset are required before running the notebooks.)*
+    * Update cell 1 from `Bluring Alogirthm For Simulating Modified Camera.ipynb` with those paths
+    * Read the instructions and run the file! 
 
 5.  **Run Jupyter Notebooks:**
     Launch Jupyter Lab or Jupyter Notebook from your activated environment:
@@ -106,17 +115,14 @@ This section outlines the steps to set up the necessary environment and run the 
 
 6.  **Pre-trained Models (if available):**
     The original `yolo-with-distance` repository may provide pre-trained weights for YOLOv3. Refer to its documentation for download links and instructions on how to use them.
-    If this project provides its own fine-tuned model weights (e.g., `yolov3_custom_final.weights` or similar `.h5` files for Keras), they should be placed in a designated models directory (e.g., `models/` or `ExistingModel/yolo-with-distance/weights/`) as expected by the notebooks.
     *(Please specify where any custom pre-trained model weights generated by this project should be placed or how they can be obtained.)*
-
-*(Please review and fill in any remaining placeholder details above, especially concerning dataset paths and pre-trained model locations specific to your project's implementation.)*
 
 ## 📜 Key Findings & Conclusion
 
 > * **Impact of Blur:** The synthetic blur significantly hampered the YOLO V3 model's performance. The model trained on blurred data failed to achieve reliable object detection or accurate distance estimation, even when tested on blurred images it was trained on.
 > * **Baseline Model Performance:** The model trained on normal (unblurred) data performed reasonably well on unblurred test images but showed a marked decrease in accuracy when presented with blurred images.
 > * **Limitations of YOLO V3:** The study suggests that older models like YOLO V3 may not be robust enough to handle significant image distortions, even with fine-tuning. The loss of image quality due to blurring led to a critical loss of confidence in the model's predictions.
-> * **Overall:** The project concluded that the tested approach of using a single warped lens (simulated by blur) with a YOLO V3 model was not a successful method for reliable distance estimation.
+> * **Overall:** Our project concluded that the tested approach of using a single warped lens (simulated by blur) with a YOLO V3 model was not a successful method for reliable distance estimation.
 
 ## ⚠️ Challenges
 * Initial attempts to collect real-world data with a physically modified camera proved difficult due to hardware limitations and severe image quality issues (excessive blur, color distortion).
