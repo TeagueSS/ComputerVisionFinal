@@ -1,8 +1,9 @@
-# 📸 Investigation of Alternative Distance Detection Using a Single Camera Warped Lens 🔭
+```markdown
+# 📸 Investigation of Alternative Distance and Object Detection Using a Single Camera Warped Lens 🔭
 
 ## 🎯 Project Overview
 
-This project, undertaken for a Computer Vision course, explores an alternative method for object distance detection using a single, modified camera lens and an AI model. The core idea was to simulate a warped lens effect by applying a synthetic blur to images and then train a YOLO V3 model to perform object detection and distance estimation on this distorted data. The goal was to investigate if such a system could offer a more cost-effective alternative to traditional methods like LiDAR or stereoscopic cameras.
+This project, Taken for CS559; Computer Vision, explores an alternative method for object distance detection using a single, modified camera lens and an AI model. The core idea was to simulate a warped lens effect by applying a synthetic blur to images and then train a YOLO V3 model to perform object detection and distance estimation on this distorted data. The goal was to investigate if such a system could offer a more cost-effective alternative to traditional methods like LiDAR or stereoscopic cameras.
 
 The research involved:
 1.  Developing an algorithm to synthetically apply a depth-aware blur to an existing image dataset (simulating a camera with an inclined sensor).
@@ -28,7 +29,7 @@ Due to challenges in obtaining consistent and usable data from a physically modi
     * `Bluring Alogirthm For Simulating Modified Camera.ipynb`
 
 ### 2. 🧠 Model Architecture and Training
-The project utilized a YOLO V3-based architecture, building upon concepts from Dist-YOLO, which integrates distance estimation with object detection. The model was modified to:
+The project utilized a YOLO V3-based architecture, building upon concepts from Dist-YOLO, which integrates distance estimation with object detection. The inital editing and weights of the model was provided by the yolo-dist repository cited bellow. The model was modified to:
 * Predict object classes (cars, cyclists, pedestrians).
 * Estimate the distance to each detected object.
 * Handle the additional distance dimension in the training labels.
@@ -61,8 +62,6 @@ This section outlines the steps to set up the necessary environment and run the 
     git clone [https://gitlab.com/EnginCZ/yolo-with-distance.git](https://gitlab.com/EnginCZ/yolo-with-distance.git)
     cd .. 
     ```
-    *(Note: The original instructions created `ExistingModel` and cloned into it, then changed directory. Added `cd ..` to return to the main project root for subsequent steps like installing requirements for the main project.)*
-
 2.  **Set up a Python Environment:**
     It is highly recommended to use a virtual environment. The author (Teague) used Anaconda.
     ```bash
@@ -141,3 +140,6 @@ This section outlines the steps to set up the necessary environment and run the 
 * Ryan Renales
 * Jwann Sy
 
+*(Please verify contributor names and roles if needed)*
+
+---
